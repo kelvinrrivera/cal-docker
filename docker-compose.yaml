@@ -1,8 +1,10 @@
-# Use postgres/example user/password credentials
 version: '3.8'
 
 volumes:
   database-data:
+  cal-data:  # Para el código de la aplicación
+  uploads:   # Para archivos subidos
+  node_modules: # Para los módulos de node
 
 networks:
   stack:
@@ -12,13 +14,22 @@ networks:
 services:
   database:
     container_name: database
-    image: postgres
+    image: postgres:14-alpine # Especificamos una versión específica
     restart: always
     volumes:
       - database-data:/var/lib/postgresql/data/
     env_file: .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     networks:
       - stack
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   calcom:
     image: calcom.docker.scarf.sh/calcom/cal.com
@@ -34,35 +45,21 @@ services:
         CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
         DATABASE_URL: ${DATABASE_URL}
         DATABASE_DIRECT_URL: ${DATABASE_URL}
-      network: stack
     restart: always
+    volumes:
+      - cal-data:/app/apps # Código de la aplicación
+      - uploads:/app/public/uploads # Archivos subidos
+      - node_modules:/app/node_modules # Módulos de node
+      - ./.env:/app/.env # Archivo de configuración
     networks:
       - stack
     ports:
-      - 3000:3000
+      - "3000:3000"
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
-      - DATABASE_DIRECT_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - DATABASE_DIRECT_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - NODE_ENV=production
     depends_on:
-      - database
-
-# Optional use of Prisma Studio. In production, comment out or remove the section below to prevent unwanted access to your database.
-  studio:
-    image: calcom.docker.scarf.sh/calcom/cal.com
-    restart: always
-    networks:
-      - stack
-    ports:
-      - 5555:5555
-    env_file: .env
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DATABASE_HOST}/${POSTGRES_DB}
-      - DATABASE_DIRECT_URL=${DATABASE_URL}
-    depends_on:
-      - database
-    command:
-      - npx
-      - prisma
-      - studio
-# END SECTION: Optional use of Prisma Studio.
+      database:
+        condition: service_healthy
