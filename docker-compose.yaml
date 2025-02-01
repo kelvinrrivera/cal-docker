@@ -2,9 +2,8 @@ version: '3.8'
 
 volumes:
   database-data:
-  cal-data:  # Para el código de la aplicación
-  uploads:   # Para archivos subidos
-  node_modules: # Para los módulos de node
+  uploads:
+  node_modules:
 
 networks:
   stack:
@@ -14,7 +13,7 @@ networks:
 services:
   database:
     container_name: database
-    image: postgres:14-alpine # Especificamos una versión específica
+    image: postgres:14-alpine
     restart: always
     volumes:
       - database-data:/var/lib/postgresql/data/
@@ -32,25 +31,17 @@ services:
       retries: 5
 
   calcom:
-    image: calcom.docker.scarf.sh/calcom/cal.com
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: https://github.com/kelvinrrivera/cal-docker.git#main
       args:
         NEXT_PUBLIC_WEBAPP_URL: ${NEXT_PUBLIC_WEBAPP_URL}
         NEXT_PUBLIC_API_V2_URL: ${NEXT_PUBLIC_API_V2_URL}
         NEXT_PUBLIC_LICENSE_CONSENT: ${NEXT_PUBLIC_LICENSE_CONSENT}
         CALCOM_TELEMETRY_DISABLED: ${CALCOM_TELEMETRY_DISABLED}
-        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-        CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY}
-        DATABASE_URL: ${DATABASE_URL}
-        DATABASE_DIRECT_URL: ${DATABASE_URL}
     restart: always
     volumes:
-      - cal-data:/app/apps # Código de la aplicación
-      - uploads:/app/public/uploads # Archivos subidos
-      - node_modules:/app/node_modules # Módulos de node
-      - ./.env:/app/.env # Archivo de configuración
+      - uploads:/app/public/uploads
+      - node_modules:/app/node_modules
     networks:
       - stack
     ports:
